@@ -1,6 +1,6 @@
 ---
 - name: Copy ssh-login-notify script to /usr/local/sbin
-  copy:
+  ansible.builtin.copy:
     content: |
       #!/bin/bash
       if [ "$PAM_TYPE" != "close_session" ]; then
@@ -16,12 +16,12 @@
     dest: /usr/local/sbin/ssh-login-notify
     owner: root
     group: root
-    mode: 0744
+    mode: "0744"
 
 - name: Add PAM config to /etc/pam.d/sshd to run ssh-login-notify on SSH login
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/pam.d/sshd
-    prepend_newline: yes
+    prepend_newline: true
     block: |
       # Send login notification
       session optional pam_exec.so quiet seteuid /usr/local/sbin/ssh-login-notify

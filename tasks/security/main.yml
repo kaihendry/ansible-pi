@@ -1,4 +1,4 @@
 ---
-- { import_tasks: sshd.yml, tags: sshd }
-- { import_tasks: unattended-upgrades.yml, tags: unattended-upgrades }
-- { import_tasks: ssh-login-notify.yml, tags: ssh-login-notify }
+- { ansible.builtin.import_tasks: sshd.yml, tags: sshd }
+- { ansible.builtin.import_tasks: unattended-upgrades.yml, tags: unattended-upgrades }
+- { ansible.builtin.import_tasks: ssh-login-notify.yml, tags: ssh-login-notify }

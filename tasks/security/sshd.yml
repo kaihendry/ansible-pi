@@ -1,9 +1,9 @@
 ---
 - name: Configure sshd
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "/etc/ssh/sshd_config"
-    regexp: "^(#)?{{item.key}}"
-    line: "{{item.key}} {{item.value}}"
+    regexp: "^(#)?{{ item.key }}"
+    line: "{{ item.key }} {{ item.value }}"
     state: present
     validate: sshd -T -f %s
   loop:
@@ -16,7 +16,7 @@
   register: sshd_configuration
 
 - name: Restart sshd
-  service:
+  ansible.builtin.service:
     name: sshd
     state: restarted
   when: sshd_configuration.changed
