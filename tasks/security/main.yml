@@ -1,0 +1,4 @@
+---
+- { import_tasks: sshd.yml, tags: sshd }
+- { import_tasks: unattended-upgrades.yml, tags: unattended-upgrades }
+- { import_tasks: ssh-login-notify.yml, tags: ssh-login-notify }

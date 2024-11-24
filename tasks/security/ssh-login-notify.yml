@@ -1,0 +1,27 @@
+---
+- name: Copy ssh-login-notify script to /usr/local/sbin
+  copy:
+    content: |
+      #!/bin/bash
+      if [ "$PAM_TYPE" != "close_session" ]; then
+        subject="SSH Login: $PAM_USER from $PAM_RHOST on $(hostname)"
+        message="$(env)"
+        curl -s -X POST \
+          --data-urlencode "user={{ lookup('env', 'PUSHOVER_USER') }}" \
+          --data-urlencode "token={{ lookup('env', 'PUSHOVER_TOKEN') }}" \
+          --data-urlencode "title=$subject" \
+          --data-urlencode "message=$message" \
+          https://api.pushover.net/1/messages.json
+      fi
+    dest: /usr/local/sbin/ssh-login-notify
+    owner: root
+    group: root
+    mode: 0744
+
+- name: Add PAM config to /etc/pam.d/sshd to run ssh-login-notify on SSH login
+  blockinfile:
+    path: /etc/pam.d/sshd
+    prepend_newline: yes
+    block: |
+      # Send login notification
+      session optional pam_exec.so quiet seteuid /usr/local/sbin/ssh-login-notify
