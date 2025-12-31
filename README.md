@@ -57,6 +57,56 @@ ssh pi@192.168.1.34 "sudo systemctl status docker"
 ssh pi@192.168.1.34 "docker ps"  # (requires new login to activate group)
 ```
 
+### 4. Caddy
+
+- **Version**: Latest (from Debian repositories)
+- **Configuration**: `/etc/caddy/Caddyfile`
+- **Auto-start**: Enabled via systemd
+- **TLS**: Automatic Let's Encrypt certificates
+
+Configured sites:
+- **home.prazefarm.co.uk** → Reverse proxy to 192.168.1.34:8123 (Home Assistant)
+  - TLS email: hendry@iki.fi
+  - X-Robots-Tag: noindex (prevents search engine indexing)
+
+Verify status:
+```bash
+ssh pi@192.168.1.34 "sudo systemctl status caddy"
+ssh pi@192.168.1.34 "sudo journalctl -u caddy -n 20"
+```
+
+### 5. Home Assistant
+
+- **Version**: Latest stable (from ghcr.io/home-assistant/home-assistant)
+- **Deployment**: Docker Compose
+- **Configuration**: `/home/pi/homeassistant/`
+- **Access**: http://192.168.1.34:8123 or https://home.prazefarm.co.uk
+- **Database**: SQLite (home-assistant_v2.db)
+- **Zigbee**: Connected via /dev/ttyUSB0
+
+Docker Compose location: `/home/pi/homeassistant/docker-compose.yaml`
+
+Custom integrations:
+- Octopus Energy
+- HACS
+- Hildebrand Glow DCC
+- LocalTuya
+- UK Bin Collection
+
+Verify status:
+```bash
+ssh pi@192.168.1.34 "docker ps | grep homeassistant"
+ssh pi@192.168.1.34 "docker logs homeassistant --tail 50"
+```
+
+Manage container:
+```bash
+cd /home/pi/homeassistant
+docker compose down    # Stop
+docker compose up -d   # Start
+docker compose restart # Restart
+```
+
 ## AI-Driven Maintenance
 
 This repository uses **beads (bd)** for issue tracking and AI-driven maintenance workflows.
@@ -123,11 +173,65 @@ sudo sh get-docker.sh
 sudo usermod -aG docker pi
 ```
 
-### 3. Verify Services
+### 3. Install Caddy
 ```bash
-sudo systemctl is-enabled tailscaled docker
+sudo apt-get update
+sudo apt-get install -y caddy
+sudo systemctl enable caddy
+```
+
+Configure Caddyfile at `/etc/caddy/Caddyfile`:
+```
+home.prazefarm.co.uk {
+    tls hendry@iki.fi
+    reverse_proxy 192.168.1.34:8123
+    header / {
+        X-Robots-Tag "noindex"
+    }
+}
+```
+
+Reload Caddy:
+```bash
+sudo systemctl reload caddy
+```
+
+### 4. Install Home Assistant
+```bash
+cd /home/pi
+mkdir -p homeassistant
+cd homeassistant
+
+# Create docker-compose.yaml
+cat > docker-compose.yaml <<'EOF'
+version: "3"
+services:
+  homeassistant:
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    container_name: homeassistant
+    volumes:
+      - /home/pi/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    environment:
+      - TZ=Europe/London
+EOF
+
+# Start Home Assistant
+docker compose up -d
+```
+
+### 5. Verify Services
+```bash
+sudo systemctl is-enabled tailscaled docker caddy
 sudo tailscale status
 docker --version
+docker ps
 ```
 
 ## Troubleshooting
@@ -147,6 +251,21 @@ docker --version
 - View logs: `sudo journalctl -u docker -n 50`
 - Restart service: `sudo systemctl restart docker`
 
+### Caddy Issues
+- Check service: `sudo systemctl status caddy`
+- View logs: `sudo journalctl -u caddy -n 50`
+- Test configuration: `sudo caddy validate --config /etc/caddy/Caddyfile`
+- Reload configuration: `sudo systemctl reload caddy`
+- Check TLS certificate status: Look for "certificate obtained" in logs
+
+### Home Assistant Issues
+- Check container status: `docker ps | grep homeassistant`
+- View logs: `docker logs homeassistant --tail 100`
+- Restart container: `cd /home/pi/homeassistant && docker compose restart`
+- Configuration file: `/home/pi/homeassistant/configuration.yaml`
+- Database: `/home/pi/homeassistant/home-assistant_v2.db`
+- Common issue: Wrong volume mount in docker-compose.yaml (must be `/home/pi/homeassistant:/config`)
+
 ## Project History
 
 This repository was originally an Ansible-based infrastructure project but has been refactored for AI-driven maintenance using direct SSH commands and beads issue tracking. This approach provides more flexibility and transparency for AI agents while reducing bureaucracy.
@@ -155,4 +274,6 @@ This repository was originally an Ansible-based infrastructure project but has b
 
 - [Tailscale Exit Nodes](https://tailscale.com/kb/1103/exit-nodes)
 - [Docker on Raspberry Pi](https://docs.docker.com/engine/install/debian/)
+- [Caddy Documentation](https://caddyserver.com/docs/)
+- [Home Assistant Docker Installation](https://www.home-assistant.io/installation/linux#docker-compose)
 - [Beads Issue Tracker](https://github.com/beadsinc/beads)
