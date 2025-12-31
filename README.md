@@ -27,6 +27,15 @@ SSH is configured with:
 - Direct access via `ssh pi@192.168.1.34`
 - Alternative access via Tailscale: `ssh pi@five`
 
+Security configuration:
+- Password authentication disabled via `/etc/ssh/sshd_config.d/disable-password-auth.conf`
+- Public key authentication enabled
+
+Test SSH security:
+```bash
+ssh pi@192.168.1.34 "/home/pi/test-ssh-security.sh"
+```
+
 ### 2. Tailscale
 
 - **Version**: 1.92.3
@@ -157,7 +166,39 @@ When adding new services to "five":
 
 If reinstalling from scratch (Debian Trixie Raspberry Pi OS):
 
-### 1. Install Tailscale
+### 1. Secure SSH
+```bash
+# Disable password authentication
+echo 'PasswordAuthentication no' | sudo tee /etc/ssh/sshd_config.d/disable-password-auth.conf
+sudo systemctl reload ssh
+
+# Create security test script
+cat > /home/pi/test-ssh-security.sh <<'EOF'
+#!/bin/bash
+echo "Testing SSH Security Configuration..."
+echo "======================================"
+echo
+PASS_AUTH=$(sudo sshd -T | grep '^passwordauthentication' | awk '{print $2}')
+PUBKEY_AUTH=$(sudo sshd -T | grep '^pubkeyauthentication' | awk '{print $2}')
+echo "Current SSH Settings:"
+echo "  Password Authentication: $PASS_AUTH"
+echo "  Public Key Authentication: $PUBKEY_AUTH"
+echo
+if [ "$PASS_AUTH" = "no" ] && [ "$PUBKEY_AUTH" = "yes" ]; then
+    echo "✓ All SSH security tests PASSED"
+    exit 0
+else
+    echo "✗ SSH security tests FAILED"
+    exit 1
+fi
+EOF
+chmod +x /home/pi/test-ssh-security.sh
+
+# Run test
+/home/pi/test-ssh-security.sh
+```
+
+### 2. Install Tailscale
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --advertise-exit-node --hostname=five
@@ -166,14 +207,14 @@ echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale
 sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
 ```
 
-### 2. Install Docker
+### 3. Install Docker
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker pi
 ```
 
-### 3. Install Caddy
+### 4. Install Caddy
 ```bash
 sudo apt-get update
 sudo apt-get install -y caddy
@@ -196,7 +237,7 @@ Reload Caddy:
 sudo systemctl reload caddy
 ```
 
-### 4. Install Home Assistant
+### 5. Install Home Assistant
 ```bash
 cd /home/pi
 mkdir -p homeassistant
@@ -226,7 +267,7 @@ EOF
 docker compose up -d
 ```
 
-### 5. Verify Services
+### 6. Verify Services
 ```bash
 sudo systemctl is-enabled tailscaled docker caddy
 sudo tailscale status
